@@ -5,7 +5,6 @@ import re
 from urllib.parse import urlparse
 from pathlib import Path
 
-
 def load_questions():
     if not Path("questions.json").exists():
         return []
@@ -24,6 +23,24 @@ def find_question(qid):
     for q in questions:
         if q["id"] == qid:
             return q
+    return None
+
+def load_answers():
+    if not Path("answers.json").exists():
+        return []
+    with open(Path("answers.json"), "r", encoding="utf-8") as f:
+        data = json.load(f)
+        return data.get("answers", [])
+
+def save_answers(answers):
+    with open(Path("answers.json"), "w", encoding="utf-8") as f:
+        json.dump({"answers": answers}, f, ensure_ascii=False, indent=2)
+
+def find_answer(aid):
+    answers = load_answers()
+    for a in answers:
+        if a["id"] == aid:
+            return a
     return None
 
 class Handler(BaseHTTPRequestHandler):
@@ -61,70 +78,119 @@ class Handler(BaseHTTPRequestHandler):
             if not questions:
                 return self.send_json(404, {"error": "no questions"})
             return self.send_json(200, questions)
+        if path == "/answers/random":
+            answers = load_answers()
+            if not answers:
+                return self.send_json(404, {"error": "no answers"})
+            return self.send_json(200, random.choice(answers))
 
         return self.send_json(404, {"error": "not found"})
 
     def do_POST(self):
         path = urlparse(self.path).path
 
-        if path != "/questions":
-            return self.send_json(404, {"error": "not found"})
+        if path == "/questions":
+            data = self.read_json()
+            if not data or not isinstance(data.get("question_text"), str) or not data["question_text"].strip():
+                return self.send_json(400, {"error": "expected {question_text:str}"})
 
-        data = self.read_json()
-        if not data or not isinstance(data.get("question_text"), str) or not data["question_text"].strip():
-            return self.send_json(400, {"error": "expected {question_text:str}"})
+            questions = load_questions()
+            next_id = max((q.get("id", 0) for q in questions), default=0) + 1
 
-        questions = load_questions()
+            new_q = {"id": next_id, "question_text": data["question_text"].strip()}
+            questions.append(new_q)
+            save_questions(questions)
+            return self.send_json(201, new_q)
 
-        next_id = (max((q.get("id", 0) for q in questions), default=0) + 1)
+        if path == "/answers":
+            data = self.read_json()
+            if not data:
+                return self.send_json(400, {"error": "invalid json"})
 
-        new_q = {
-            "id": next_id,
-            "question_text": data["question_text"].strip()
-        }
+            qid = data.get("question_id")
+            text = data.get("answer_text")
 
-        questions.append(new_q)
-        save_questions(questions)
+            if not isinstance(qid, int) or not isinstance(text, str) or not text.strip():
+                return self.send_json(400, {"error": "expected {question_id:int, answer_text:str}"})
 
-        return self.send_json(201, new_q)
+            if find_question(qid) is None:
+                return self.send_json(404, {"error": "question_id not found"})
+
+            answers = load_answers()
+            next_id = max((a.get("id", 0) for a in answers), default=0) + 1
+
+            new_a = {"id": next_id, "question_id": qid, "answer_text": text.strip()}
+            answers.append(new_a)
+            save_answers(answers)
+            return self.send_json(201, new_a)
+
+        return self.send_json(404, {"error": "not found"})
 
     def do_PUT(self):
         path = urlparse(self.path).path
+
         match = re.fullmatch(r"/questions/(\d+)", path)
-        if not match:
-            return self.send_json(404, {"error": "not found"})
+        if match:
+            qid = int(match.group(1))
+            data = self.read_json()
+            if not data or not isinstance(data.get("question_text"), str) or not data["question_text"].strip():
+                return self.send_json(400, {"error": "expected {question_text:str}"})
 
-        qid = int(match.group(1))
-        data = self.read_json()
-        if not data or "question_text" not in data:
-            return self.send_json(400, {"error": "invalid body"})
+            questions = load_questions()
+            for q in questions:
+                if q["id"] == qid:
+                    q["question_text"] = data["question_text"].strip()
+                    save_questions(questions)
+                    return self.send_json(200, q)
 
-        questions = load_questions()
+            return self.send_json(404, {"error": "question not found"})
 
-        for q in questions:
-            if q["id"] == qid:
-                q["question_text"] = data["question_text"]
-                save_questions(questions)
-                return self.send_json(200, q)
+        match = re.fullmatch(r"/answers/(\d+)", path)
+        if match:
+            aid = int(match.group(1))
+            data = self.read_json()
+            if not data or not isinstance(data.get("answer_text"), str) or not data["answer_text"].strip():
+                return self.send_json(400, {"error": "expected {answer_text:str}"})
 
-        return self.send_json(404, {"error": "question not found"})
+            answers = load_answers()
+            for a in answers:
+                if a["id"] == aid:
+                    a["answer_text"] = data["answer_text"].strip()
+                    save_answers(answers)
+                    return self.send_json(200, a)
+
+            return self.send_json(404, {"error": "answer not found"})
+
+        return self.send_json(404, {"error": "not found"})
 
     def do_DELETE(self):
         path = urlparse(self.path).path
+
         match = re.fullmatch(r"/questions/(\d+)", path)
-        if not match:
-            return self.send_json(404, {"error": "not found"})
+        if match:
+            qid = int(match.group(1))
+            questions = load_questions()
+            new_questions = [q for q in questions if q["id"] != qid]
 
-        qid = int(match.group(1))
-        questions = load_questions()
-        new_questions = [q for q in questions if q["id"] != qid]
+            if len(new_questions) == len(questions):
+                return self.send_json(404, {"error": "question not found"})
 
-        if len(new_questions) == len(questions):
-            return self.send_json(404, {"error": "question not found"})
+            save_questions(new_questions)
+            return self.send_no_content()
 
-        save_questions(new_questions)
-        return self.send_no_content()
+        match = re.fullmatch(r"/answers/(\d+)", path)
+        if match:
+            aid = int(match.group(1))
+            answers = load_answers()
+            new_answers = [a for a in answers if a["id"] != aid]
 
+            if len(new_answers) == len(answers):
+                return self.send_json(404, {"error": "answer not found"})
+
+            save_answers(new_answers)
+            return self.send_no_content()
+
+        return self.send_json(404, {"error": "not found"})
 
 
 def main():
