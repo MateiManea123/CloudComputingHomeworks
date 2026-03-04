@@ -1,0 +1,44 @@
+{
+  "questions": [
+    {
+      "id": 1,
+      "question_text": "Spune-mi 3 lucruri interesante despre tine"
+    },
+    {
+      "id": 2,
+      "question_text": "Care este cea mai mare realizare a ta pana acum?"
+    },
+    {
+      "id": 3,
+      "question_text": "Ce te motiveaza cel mai mult in viata?"
+    },
+    {
+      "id": 4,
+      "question_text": "Care este o abilitate pe care ai vrea sa o dezvolti?"
+    },
+    {
+      "id": 5,
+      "question_text": "Cum ar arata ziua ta perfecta?"
+    },
+    {
+      "id": 6,
+      "question_text": "Care este cea mai importanta lectie pe care ai invatat-o?"
+    },
+    {
+      "id": 7,
+      "question_text": "Daca ai putea invata instant ceva nou, ce ai alege?"
+    },
+    {
+      "id": 8,
+      "question_text": "Ce hobby-uri ai in timpul liber?"
+    },
+    {
+      "id": 9,
+      "question_text": "Care este un obiectiv important pentru urmatorii 5 ani?"
+    },
+    {
+      "id": 10,
+      "question_text": "Ce tip de persoane te inspira cel mai mult?"
+    }
+  ]
+}
