@@ -1,2 +1,2 @@
 # CloudComputingHomeworks
-homeworks for the cloud computing lesson
+homeworks for the cloud computing course
